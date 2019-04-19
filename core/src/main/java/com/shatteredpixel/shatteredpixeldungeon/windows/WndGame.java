@@ -40,13 +40,13 @@ public class WndGame extends Window {
 	private static final int WIDTH		= 120;
 	private static final int BTN_HEIGHT	= 20;
 	private static final int GAP		= 2;
-	
+
 	private int pos;
-	
+
 	public WndGame() {
-		
+
 		super();
-		
+
 		addButton( new RedButton( Messages.get(this, "settings") ) {
 			@Override
 			protected void onClick() {
@@ -68,7 +68,7 @@ public class WndGame extends Window {
 
 		// Restart
 		if (!Dungeon.hero.isAlive()) {
-			
+
 			RedButton btnStart;
 			addButton( btnStart = new RedButton( Messages.get(this, "start") ) {
 				@Override
@@ -79,7 +79,7 @@ public class WndGame extends Window {
 				}
 			} );
 			btnStart.textColor(Window.TITLE_COLOR);
-			
+
 			addButton( new RedButton( Messages.get(this, "rankings") ) {
 				@Override
 				protected void onClick() {
@@ -99,7 +99,7 @@ public class WndGame extends Window {
 						} catch (IOException e) {
 							ShatteredPixelDungeon.reportException(e);
 						}
-						Game.switchScene(TitleScene.class);
+						ShatteredPixelDungeon.switchFade(TitleScene.class);
 					}
 				},
 				// Quit
@@ -123,10 +123,10 @@ public class WndGame extends Window {
 				hide();
 			}
 		} );
-		
+
 		resize( WIDTH, pos );
 	}
-	
+
 	private void addButton( RedButton btn ) {
 		add( btn );
 		btn.setRect( 0, pos > 0 ? pos += GAP : 0, WIDTH, BTN_HEIGHT );

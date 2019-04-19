@@ -31,11 +31,32 @@ android {
 
     defaultConfig {
         //noinspection MinSdkTooLow
-        minSdkVersion 8
+        minSdkVersion 17
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 }
 
 dependencies {
+    releaseImplementation files('libs/adnim-release.aar')
+    debugImplementation files('libs/adnim-debug.aar')
+
+    //releaseImplementation fileTree(dir: 'libs/release', include: ['*.aar'])
+    //debugImplementation fileTree(dir: 'libs/debug', include: ['*.aar'])
+
+    //annotationProcessor 'android.arch.lifecycle:compiler:1.1.1'
+    //implementation 'android.arch.lifecycle:runtime:1.1.1'
+    implementation 'android.arch.lifecycle:extensions:1.1.1'
+    //implementation 'com.android.volley:volley:1.1.0'
+    //implementation 'com.squareup.retrofit2:retrofit:2.4.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.3.0'
+    implementation 'com.squareup.retrofit2:adapter-rxjava:2.1.0'
+    implementation 'io.reactivex:rxandroid:1.2.1'
+    implementation 'com.crossbowffs.remotepreferences:remotepreferences:0.7'
+
     repositories {
         google()
         jcenter()

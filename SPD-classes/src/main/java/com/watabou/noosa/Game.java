@@ -23,12 +23,15 @@ package com.watabou.noosa;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.media.AudioManager;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.os.Vibrator;
 import android.util.DisplayMetrics;
@@ -37,7 +40,10 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.View;
+import android.widget.Toast;
 
+import com.teknologika.getnim.adnim.AdsHelper;
+import com.watabou.R;
 import com.watabou.glscripts.Script;
 import com.watabou.gltextures.TextureCache;
 import com.watabou.glwrap.Blending;
@@ -56,6 +62,9 @@ import java.util.ArrayList;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import static com.teknologika.getnim.adnim.AdsHelper.EARN_UNITS;
+import static com.teknologika.getnim.adnim.AdsHelper.LUNAS_PER_NIM;
+
 public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTouchListener {
 
 	public static Game instance;
@@ -63,17 +72,17 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 	//actual size of the display
 	public static int dispWidth;
 	public static int dispHeight;
-	
+
 	// Size of the EGL surface view
 	public static int width;
 	public static int height;
-	
+
 	// Density: mdpi=1, hdpi=1.5, xhdpi=2...
 	public static float density = 1;
-	
+
 	public static String version;
 	public static int versionCode;
-	
+
 	// Current scene
 	protected Scene scene;
 	// New scene we are going to switch to
@@ -84,36 +93,42 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 	protected SceneChangeCallback onChange;
 	// New scene class
 	protected Class<? extends Scene> sceneClass;
-	
+
 	// Current time in milliseconds
 	protected long now;
 	// Milliseconds passed since previous update
 	protected long step;
-	
+
 	public static float timeScale = 1f;
 	public static float elapsed = 0f;
 	public static float timeTotal = 0f;
-	
+
 	protected GLSurfaceView view;
 	protected SurfaceHolder holder;
-	
+
 	// Accumulated touch events
 	protected ArrayList<MotionEvent> motionEvents = new ArrayList<MotionEvent>();
-	
+
 	// Accumulated key events
 	protected ArrayList<KeyEvent> keysEvents = new ArrayList<KeyEvent>();
-	
+
+	private static AdsHelper adsHelper;
+	private static Handler handler;
+	private static Context context;
+
 	public Game( Class<? extends Scene> c ) {
 		super();
 		sceneClass = c;
 	}
-	
+
 	@Override
 	protected void onCreate( Bundle savedInstanceState ) {
 		super.onCreate( savedInstanceState );
-		
+
+		setContentView(R.layout.game);
+
 		BitmapCache.context = TextureCache.context = instance = this;
-		
+
 		DisplayMetrics m = new DisplayMetrics();
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1)
 			getWindowManager().getDefaultDisplay().getRealMetrics( m );
@@ -122,7 +137,7 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 		density = m.density;
 		dispHeight = m.heightPixels;
 		dispWidth = m.widthPixels;
-		
+
 		try {
 			version = getPackageManager().getPackageInfo( getPackageName(), 0 ).versionName;
 		} catch (NameNotFoundException e) {
@@ -133,10 +148,10 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 		} catch (NameNotFoundException e) {
 			versionCode = 0;
 		}
-		
+
 		setVolumeControlStream( AudioManager.STREAM_MUSIC );
-		
-		view = new GLSurfaceView( this );
+
+		view = findViewById(R.id.glSurface); //new GLSurfaceView( this );
 		view.setEGLContextClientVersion( 2 );
 
 		//Older devices are forced to RGB 565 for performance reasons.
@@ -147,93 +162,105 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 
 		view.setRenderer( this );
 		view.setOnTouchListener( this );
-		setContentView( view );
-		
-		//so first call to onstart/onresume calls correct logic.
+
+		if (adsHelper == null) {
+			adsHelper = new AdsHelper(this, null);
+			adsHelper.useLayout(com.watabou.R.id.adContainer);
+		}
+
+		if (handler == null) {
+			handler = new Handler(Looper.getMainLooper());
+		}
+
+		if (context == null) {
+			context = getApplicationContext();
+		}
+
 		paused = true;
 	}
-	
+
 	private boolean paused;
-	
+
 	//Starting with honeycomb, android's lifecycle management changes slightly
-	
+
 	@Override
 	public void onStart() {
 		super.onStart();
-		
+
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB){
 			resumeGame();
 		}
 	}
-	
+
 	@Override
 	protected void onResume() {
 		super.onResume();
-		
+
 		if (scene != null) {
 			scene.onResume();
 		}
-		
+
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB){
 			resumeGame();
 		}
 	}
-	
+
 	@Override
 	protected void onPause() {
 		super.onPause();
-		
+
 		if (scene != null) {
 			scene.onPause();
 		}
-		
+
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.HONEYCOMB){
 			pauseGame();
 		}
 	}
-	
+
 	@Override
 	public void onStop() {
 		super.onStop();
-		
+
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB){
 			pauseGame();
 		}
 	}
-	
+
 	public void pauseGame(){
 		if (paused) return;
-		
+
 		paused = true;
 		view.onPause();
 		Script.reset();
-		
+
 		Music.INSTANCE.pause();
 		Sample.INSTANCE.pause();
 	}
-	
+
 	public void resumeGame(){
 		if (!paused) return;
-		
+
 		now = 0;
 		paused = false;
 		view.onResume();
-		
+
 		Music.INSTANCE.resume();
 		Sample.INSTANCE.resume();
 	}
-	
+
 	public boolean isPaused(){
 		return paused;
 	}
-	
+
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
 		destroyGame();
-		
+
 		Music.INSTANCE.mute();
 		Sample.INSTANCE.reset();
+		adsHelper.finishActivityTracker();
 	}
 
 	@SuppressLint({ "Recycle", "ClickableViewAccessibility" })
@@ -244,21 +271,21 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 		}
 		return true;
 	}
-	
+
 	@Override
 	public boolean onKeyDown( int keyCode, KeyEvent event ) {
-		
+
 		if (keyCode != Keys.BACK &&
 				keyCode != Keys.MENU) {
 			return false;
 		}
-		
+
 		synchronized (motionEvents) {
 			keysEvents.add( event );
 		}
 		return true;
 	}
-	
+
 	@Override
 	public boolean onKeyUp( int keyCode, KeyEvent event ) {
 
@@ -266,33 +293,33 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 				keyCode != Keys.MENU) {
 			return false;
 		}
-		
+
 		synchronized (motionEvents) {
 			keysEvents.add( event );
 		}
 		return true;
 	}
-	
+
 	@Override
 	public void onDrawFrame( GL10 gl ) {
-		
+
 		if (width == 0 || height == 0) {
 			return;
 		}
-		
+
 		NoosaScript.get().resetCamera();
 		NoosaScriptNoLighting.get().resetCamera();
 		GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
 		GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 		draw();
-		
+
 		GLES20.glFlush();
-		
+
 		SystemTime.tick();
 		long rightNow = SystemClock.elapsedRealtime();
 		step = (now == 0 ? 0 : rightNow - now);
 		now = rightNow;
-		
+
 		step();
 	}
 
@@ -319,16 +346,16 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 		RenderedText.reloadCache();
 		Vertexbuffer.refreshAllBuffers();
 	}
-	
+
 	protected void destroyGame() {
 		if (scene != null) {
 			scene.destroy();
 			scene = null;
 		}
-		
+
 		//instance = null;
 	}
-	
+
 	public static void resetScene() {
 		switchScene( instance.sceneClass );
 	}
@@ -336,19 +363,19 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 	public static void switchScene(Class<? extends Scene> c) {
 		switchScene(c, null);
 	}
-	
+
 	public static void switchScene(Class<? extends Scene> c, SceneChangeCallback callback) {
 		instance.sceneClass = c;
 		instance.requestedReset = true;
 		instance.onChange = callback;
 	}
-	
+
 	public static Scene scene() {
 		return instance.scene;
 	}
-	
+
 	protected void step() {
-		
+
 		if (requestedReset) {
 			requestedReset = false;
 
@@ -362,18 +389,18 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 			}
 
 		}
-		
+
 		update();
 	}
-	
+
 	protected void draw() {
 		if (scene != null) scene.draw();
 	}
-	
+
 	protected void switchScene() {
 
 		Camera.reset();
-		
+
 		if (scene != null) {
 			scene.destroy();
 		}
@@ -382,7 +409,7 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 		scene.create();
 		if (onChange != null) onChange.afterCreate();
 		onChange = null;
-		
+
 		Game.elapsed = 0f;
 		Game.timeScale = 1f;
 		Game.timeTotal = 0f;
@@ -400,19 +427,19 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 			Keys.processTouchEvents( keysEvents );
 			keysEvents.clear();
 		}
-		
+
 		scene.update();
 		Camera.updateAll();
 	}
-	
+
 	public static void reportException( Throwable tr ) {
 		if (instance != null) instance.logException(tr);
 	}
-	
+
 	protected void logException( Throwable tr ){
 		Log.e("GAME", Log.getStackTraceString(tr));
 	}
-	
+
 	public static void vibrate( int milliseconds ) {
 		((Vibrator)instance.getSystemService( VIBRATOR_SERVICE )).vibrate( milliseconds );
 	}
@@ -420,5 +447,21 @@ public class Game extends Activity implements GLSurfaceView.Renderer, View.OnTou
 	public interface SceneChangeCallback{
 		void beforeCreate();
 		void afterCreate();
+	}
+
+	public static void showAd() {
+		handler.post(() -> {
+			adsHelper.showAd(amount -> {
+				handler.post(() -> {
+					Toast.makeText(context, String.format("Rewarded with %s %s", String.format("%.2f", amount / LUNAS_PER_NIM), EARN_UNITS), Toast.LENGTH_LONG).show();
+				});
+			});
+		});
+	}
+
+	public static void hideAd() {
+		handler.post(() -> {
+			adsHelper.hideAd();
+		});
 	}
 }
