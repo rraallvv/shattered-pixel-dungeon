@@ -41,7 +41,7 @@ public class Fireball extends Component {
 	private static final RectF FLAME1 = new RectF( 0.50f, 0, 0.75f, 1 );
 	private static final RectF FLAME2 = new RectF( 0.75f, 0, 1.00f, 1 );
 	
-	private static final int COLOR = 0xFF66FF;
+	private static final int COLOR = 0xFFFFCC;
 	
 	private Image bLight;
 	private Image fLight;

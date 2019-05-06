@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-	package="com.shatteredpixel.shatteredpixeldungeon"
+<manifest
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	package="com.getnimapp.pixeldungeon"
 	android:versionCode="335"
 	android:versionName="0.7.2a"
 	android:installLocation="auto">
